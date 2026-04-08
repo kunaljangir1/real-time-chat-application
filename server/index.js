@@ -73,6 +73,29 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('messages_read', async (data) => {
+    try {
+      const room = await ChatRoom.findOne({ roomName: data.roomId });
+      if (room) {
+        await Message.updateMany(
+          { roomId: room._id, senderId: { $ne: data.readerId }, isRead: false },
+          { $set: { isRead: true } }
+        );
+        io.to(data.roomId).emit('read_status_updated', { roomId: data.roomId, readerId: data.readerId });
+      }
+    } catch (error) {
+      console.error('Error updating read status:', error);
+    }
+  });
+
+  socket.on('typing', (data) => {
+    socket.to(data.roomId).emit('user_typing', { username: data.username, roomId: data.roomId });
+  });
+
+  socket.on('stop_typing', (data) => {
+    socket.to(data.roomId).emit('user_stop_typing', { username: data.username, roomId: data.roomId });
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
 

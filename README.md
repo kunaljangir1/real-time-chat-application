@@ -35,8 +35,19 @@ npm run dev
 ```
 
 This will automatically boot **Concurrent Orchestration**:
-- The **Express/MongoDB Backend** binding to your provided `PORT` (usually `5000`).
+- The **Express/MongoDB Backend** binding to your provided `PORT` (usually `5001`).
 - The **Vite React Frontend** hosted on port `3000`.
+
+## ✨ Professional Features
+
+Your application contains enterprise-standard communication features:
+
+- **Live Typing Indicators**: Real-time feedback when other participants are composing messages.
+- **Sidebar Search & Filtering**: Instant search bar to navigate large lists of conversations and groups.
+- **Unread Tab Notifications**: The browser tab title dynamically updates with an `(n) NeoChat` badge for missed messages.
+- **Auth-Guard & Auto-Navigation**: Intelligent routing that skips login screens if you are already authenticated.
+- **macOS Conflict Prevention**: Global infrastructure shifted to Port `5001` to prevent collisions with Apple AirPlay services.
+
 
 ### 🌍 Access over Local Network (LAN)
 The Frontend application has been globally optimized to dynamically pull the API regardless of the Local Machine IP.
