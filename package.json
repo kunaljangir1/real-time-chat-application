@@ -8,5 +8,9 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.1",
+    "mongoose": "^9.4.1"
   }
 }

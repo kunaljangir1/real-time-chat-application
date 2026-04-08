@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import ChatWindow from '../components/ChatWindow';
+import { API_URL } from '../config';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -27,7 +28,7 @@ const Dashboard = () => {
         const parsedUser = JSON.parse(storedUser);
         setUserInfo(parsedUser);
 
-        const newSocket = io('http://localhost:5001', { query: { userId: parsedUser.id } });
+        const newSocket = io(API_URL, { query: { userId: parsedUser.id } });
         setSocket(newSocket);
 
         newSocket.on('user_status_changed', (data) => {
@@ -65,7 +66,7 @@ const Dashboard = () => {
 
     const fetchConversations = async (userId) => {
         try {
-            const res = await fetch(`http://localhost:5001/api/conversations?userId=${userId}`);
+            const res = await fetch(`${API_URL}/api/conversations?userId=${userId}`);
             const data = await res.json();
             setConversations(data);
         } catch (err) { console.error(err); }
@@ -73,7 +74,7 @@ const Dashboard = () => {
 
     const fetchUsersForModal = async () => {
          try {
-            const res = await fetch('http://localhost:5001/api/users');
+            const res = await fetch(`${API_URL}/api/users`);
             const data = await res.json();
             setUsersForModal(data);
         } catch (err) { console.error(err); }
@@ -81,9 +82,27 @@ const Dashboard = () => {
 
     const handleCreateGroup = async (e) => {
         e.preventDefault();
-        if (!newRoomName || newRoomName.trim() === '') return;
+        
+        // Native 1-on-1 Conversation Router
+        if ((!newRoomName || newRoomName.trim() === '') && selectedUsers.length === 1) {
+             const targetUserId = selectedUsers[0];
+             const p1 = userInfo.id;
+             const p2 = targetUserId;
+             const oneOnOneRoomName = p1 < p2 ? `${p1}_${p2}` : `${p2}_${p1}`;
+             
+             setShowModal(false);
+             setSelectedUsers([]);
+             setActiveRoom(oneOnOneRoomName);
+             return;
+        }
+
+        if (!newRoomName || newRoomName.trim() === '') {
+             alert('Provide a group name or select exactly ONE user to start a direct message.');
+             return;
+        }
+        
         try {
-            const res = await fetch('http://localhost:5001/api/rooms/create', {
+            const res = await fetch(`${API_URL}/api/rooms/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ roomName: newRoomName.trim(), members: [...selectedUsers, userInfo.id] })
@@ -179,10 +198,10 @@ const Dashboard = () => {
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark/80 backdrop-blur-sm px-4">
                     <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl p-6">
-                        <h3 className="text-xl font-bold mb-4 text-white">Create New Group</h3>
+                        <h3 className="text-xl font-bold mb-4 text-white">Start Conversation</h3>
                         <form onSubmit={handleCreateGroup}>
                             <div className="mb-5">
-                                <label className="block text-sm font-medium text-slate-300 mb-1.5">Group Channel Name</label>
+                                <label className="block text-sm font-medium text-slate-300 mb-1.5">Group Name <span className="text-slate-500 text-xs font-normal">(Leave blank for 1-1 Chat)</span></label>
                                 <input autoFocus type="text" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} placeholder="e.g. Engineering Team" className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"/>
                             </div>
                             <div className="mb-6 h-48 overflow-y-auto pr-2">

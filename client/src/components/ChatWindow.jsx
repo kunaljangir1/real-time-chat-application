@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { API_URL } from '../config';
 
 const ChatWindow = ({ socket, currentUser, roomId }) => {
     const [messages, setMessages] = useState([]);
@@ -10,7 +11,7 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
 
         const fetchHistory = async () => {
              try {
-                const response = await fetch(`http://localhost:5001/api/messages/${roomId}`);
+                const response = await fetch(`${API_URL}/api/messages/${roomId}`);
                 const historyData = await response.json();
                 setMessages(historyData);
                 socket.emit('messages_read', { roomId, readerId: currentUser.id });
@@ -60,17 +61,37 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
          setCurrentMessage('');
     };
 
+    const handleDeleteRoom = async () => {
+        if (!window.confirm("Are you sure you want to permanently delete this conversation for the server? This cannot be undone.")) return;
+        try {
+            const res = await fetch(`${API_URL}/api/rooms/${roomId}`, { method: 'DELETE' });
+            if (res.ok) {
+                window.location.reload(); 
+            } else {
+                alert("Cannot delete this system room.");
+            }
+        } catch(err) { console.error("Error deleting room", err); }
+    };
+
     return (
         <div className="flex flex-col h-full relative">
             {/* Header */}
-            <div className="px-6 py-4 flex items-center border-b border-slate-800 bg-brand-dark/50 backdrop-blur-md sticky top-0 z-10 shadow-sm">
-                 <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-indigo-400 mr-4 shadow-inner ring-1 ring-white/5">
-                     {roomId.replace('room_', '').charAt(0).toUpperCase()}
+            <div className="px-6 py-4 flex items-center justify-between border-b border-slate-800 bg-brand-dark/50 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+                 <div className="flex items-center">
+                     <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-indigo-400 mr-4 shadow-inner ring-1 ring-white/5">
+                         {roomId.replace('room_', '').charAt(0).toUpperCase()}
+                     </div>
+                     <div>
+                         <h3 className="font-bold text-white text-lg tracking-tight">{roomId.replace('room_', '')}</h3>
+                         <p className="text-xs text-emerald-400 font-medium">Secured • Real-Time Chat</p>
+                     </div>
                  </div>
-                 <div>
-                     <h3 className="font-bold text-white text-lg tracking-tight">{roomId.replace('room_', '')}</h3>
-                     <p className="text-xs text-emerald-400 font-medium">Secured • Real-Time Chat</p>
-                 </div>
+                 
+                 {roomId !== 'Global Lounge' && (
+                     <button onClick={handleDeleteRoom} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" title="Delete Conversation">
+                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                     </button>
+                 )}
             </div>
 
             {/* Canvas */}

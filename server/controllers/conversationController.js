@@ -38,29 +38,25 @@ const getConversations = async (req, res) => {
              const oneOnOneRoomName = p1 < p2 ? `${p1}_${p2}` : `${p2}_${p1}`;
 
              const room = await ChatRoom.findOne({ roomName: oneOnOneRoomName });
-             let lastMessage = "Say hello!";
-             let unreadCount = 0;
-             let lastMessageTime = new Date(0);
 
              if (room) {
                  const lastMsg = await Message.findOne({ roomId: room._id }).sort({ timestamp: -1 });
+                 // Only inject into sidebar if an active message footprint exists
                  if (lastMsg) {
-                     lastMessage = lastMsg.content;
-                     lastMessageTime = lastMsg.timestamp;
+                     const unreadCount = await Message.countDocuments({ roomId: room._id, senderId: { $ne: userId }, isRead: false });
+                     
+                     conversations.push({
+                         id: oneOnOneRoomName,
+                         name: user.username,
+                         isGroup: false,
+                         targetUserId: user._id.toString(), 
+                         lastMessage: lastMsg.content,
+                         lastMessageTime: lastMsg.timestamp,
+                         unreadCount,
+                         onlineStatus: user.onlineStatus
+                     });
                  }
-                 unreadCount = await Message.countDocuments({ roomId: room._id, senderId: { $ne: userId }, isRead: false });
              }
-
-             conversations.push({
-                 id: oneOnOneRoomName,
-                 name: user.username,
-                 isGroup: false,
-                 targetUserId: user._id.toString(), // used to target live online Statuses
-                 lastMessage,
-                 lastMessageTime,
-                 unreadCount,
-                 onlineStatus: user.onlineStatus
-             });
         }
 
         // Sort descending (most recent message at the top)

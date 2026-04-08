@@ -1,4 +1,5 @@
 const ChatRoom = require('../models/ChatRoom');
+const Message = require('../models/Message');
 
 // @route POST /api/rooms/create
 const createRoom = async (req, res) => {
@@ -44,4 +45,26 @@ const getRooms = async (req, res) => {
     }
 };
 
-module.exports = { createRoom, getRooms };
+// @route DELETE /api/rooms/:roomName
+const deleteRoom = async (req, res) => {
+    try {
+        const { roomName } = req.params;
+        if (roomName === 'Global Lounge') {
+            return res.status(403).json({ message: 'Cannot delete the Global Lounge' });
+        }
+        
+        const room = await ChatRoom.findOne({ roomName });
+        if (room) {
+            await Message.deleteMany({ roomId: room._id });
+            await ChatRoom.deleteOne({ _id: room._id });
+            res.json({ message: 'Conversation permanently deleted.' });
+        } else {
+             // In case physical room doesn't exist but history does exist due to async sockets
+             res.json({ message: 'Room cleared.' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports = { createRoom, getRooms, deleteRoom };
