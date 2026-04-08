@@ -22,7 +22,7 @@ Inside the `/server` directory, create a hidden file named exactly `.env`. Use t
 
 ```env
 # /server/.env
-PORT=5000
+PORT=5001
 MONGO_URI=mongodb+srv://<your-username>:<your-password>@<your-cluster>.mongodb.net/realtime-chat
 JWT_SECRET=your_super_secret_key_here
 ```
