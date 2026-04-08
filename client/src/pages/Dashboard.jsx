@@ -17,6 +17,12 @@ const Dashboard = () => {
     const [newRoomName, setNewRoomName] = useState('');
     const [usersForModal, setUsersForModal] = useState([]);
     const [selectedUsers, setSelectedUsers] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        const totalUnread = conversations.reduce((acc, conv) => acc + (conv.unreadCount || 0), 0);
+        document.title = totalUnread > 0 ? `(${totalUnread}) NeoChat` : 'NeoChat';
+    }, [conversations]);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('userInfo');
@@ -141,11 +147,29 @@ const Dashboard = () => {
                     </button>
                 </div>
 
+                {/* Search Bar */}
+                <div className="px-4 py-3 bg-[#1e293b]/50">
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            placeholder="Search conversations..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-[#0f172a] border border-slate-700 text-sm rounded-lg pl-9 pr-4 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-500"
+                        />
+                        <svg className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                </div>
+
                 {/* Conversation Scroll */}
                 <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
                     <h4 className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Conversations</h4>
                     
-                    {conversations.map(conv => {
+                    {conversations
+                        .filter(conv => conv.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .map(conv => {
                         const isActive = activeRoom === conv.id;
                         return (
                             <div 

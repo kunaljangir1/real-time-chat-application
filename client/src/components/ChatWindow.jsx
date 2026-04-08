@@ -4,6 +4,8 @@ import { API_URL } from '../config';
 const ChatWindow = ({ socket, currentUser, roomId }) => {
     const [messages, setMessages] = useState([]);
     const [currentMessage, setCurrentMessage] = useState('');
+    const [typingUsers, setTypingUsers] = useState([]);
+    const typingTimeoutRef = useRef(null);
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -34,12 +36,30 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
              }
         };
 
+        const typingHandler = (data) => {
+             if (data.roomId === roomId && data.username !== currentUser.username) {
+                 setTypingUsers(prev => prev.includes(data.username) ? prev : [...prev, data.username]);
+                 // Scroll to bottom when someone starts typing
+                 setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+             }
+        };
+
+        const stopTypingHandler = (data) => {
+             if (data.roomId === roomId) {
+                 setTypingUsers(prev => prev.filter(user => user !== data.username));
+             }
+        };
+
         socket.on('receive_message', messageHandler);
         socket.on('read_status_updated', readStatusHandler);
+        socket.on('user_typing', typingHandler);
+        socket.on('user_stop_typing', stopTypingHandler);
 
         return () => {
              socket.off('receive_message', messageHandler);
              socket.off('read_status_updated', readStatusHandler);
+             socket.off('user_typing', typingHandler);
+             socket.off('user_stop_typing', stopTypingHandler);
         };
     }, [socket, roomId, currentUser.id]);
 
@@ -47,9 +67,23 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    const handleTyping = (e) => {
+        setCurrentMessage(e.target.value);
+        
+        socket.emit('typing', { roomId, username: currentUser.username });
+        
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+            socket.emit('stop_typing', { roomId, username: currentUser.username });
+        }, 2000);
+    };
+
     const handleSend = async (e) => {
          e.preventDefault();
          if (currentMessage.trim() === '') return;
+         
+         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+         socket.emit('stop_typing', { roomId, username: currentUser.username });
          
          socket.emit('send_message', {
              roomId,
@@ -133,7 +167,22 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
                          </div>
                      )
                 })}
-                <div ref={messagesEndRef} />
+                 {/* Typing Indicator Widget */}
+                 {typingUsers.length > 0 && (
+                     <div className="flex justify-start animate-in fade-in duration-200 mb-4">
+                         <div className="max-w-[60%] flex flex-col items-start gap-1">
+                             <div className="px-4 py-2 bg-slate-800 text-slate-300 rounded-2xl rounded-bl-sm border border-slate-700 flex items-center gap-2 shadow-sm">
+                                  <span className="text-xs font-medium">{typingUsers.join(', ')} {typingUsers.length > 1 ? 'are' : 'is'} typing</span>
+                                  <div className="flex gap-1 items-center">
+                                       <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                       <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                       <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce"></div>
+                                  </div>
+                             </div>
+                         </div>
+                     </div>
+                 )}
+                 <div ref={messagesEndRef} />
             </div>
 
             {/* Input Form */}
@@ -142,7 +191,7 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
                      <input 
                          type="text" 
                          value={currentMessage}
-                         onChange={e => setCurrentMessage(e.target.value)}
+                         onChange={handleTyping}
                          placeholder="Type a message..."
                          className="flex-1 bg-[#1e293b] border border-slate-700 rounded-full pl-6 pr-12 py-3.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-500"
                      />
