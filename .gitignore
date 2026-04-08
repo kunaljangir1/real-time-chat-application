@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+**/dist
+build
+**/build
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+coverage
+client/.vite
+server/chat.db

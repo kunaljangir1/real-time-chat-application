@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - chat_network
+
+  server:
+    build: ./server
+    ports:
+      - "5001:5000"
+    environment:
+      - MONGO_URI=mongodb://db:27017/realtime-chat
+      - JWT_SECRET=supersecret_key_123
+    depends_on:
+      - db
+    networks:
+      - chat_network
+
+  client:
+    build: ./client
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    networks:
+      - chat_network
+
+volumes:
+  mongo-data:
+
+networks:
+  chat_network:
+    driver: bridge

@@ -1,0 +1,141 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+const ChatWindow = ({ socket, currentUser, roomId }) => {
+    const [messages, setMessages] = useState([]);
+    const [currentMessage, setCurrentMessage] = useState('');
+    const messagesEndRef = useRef(null);
+
+    useEffect(() => {
+        if (!socket || !roomId) return;
+
+        const fetchHistory = async () => {
+             try {
+                const response = await fetch(`http://localhost:5001/api/messages/${roomId}`);
+                const historyData = await response.json();
+                setMessages(historyData);
+                socket.emit('messages_read', { roomId, readerId: currentUser.id });
+             } catch (err) { console.error("Failed to load chat history", err); }
+        };
+        fetchHistory();
+
+        socket.emit('join_room', roomId);
+
+        const messageHandler = (data) => {
+             setMessages(prev => [...prev, data]);
+             if (data.senderId !== currentUser.id) {
+                 socket.emit('messages_read', { roomId, readerId: currentUser.id });
+             }
+        };
+
+        const readStatusHandler = (data) => {
+             if (data.roomId === roomId && data.readerId !== currentUser.id) {
+                 setMessages(prev => prev.map(m => m.senderId === currentUser.id ? { ...m, isRead: true } : m));
+             }
+        };
+
+        socket.on('receive_message', messageHandler);
+        socket.on('read_status_updated', readStatusHandler);
+
+        return () => {
+             socket.off('receive_message', messageHandler);
+             socket.off('read_status_updated', readStatusHandler);
+        };
+    }, [socket, roomId, currentUser.id]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const handleSend = async (e) => {
+         e.preventDefault();
+         if (currentMessage.trim() === '') return;
+         
+         socket.emit('send_message', {
+             roomId,
+             senderId: currentUser.id,
+             senderName: currentUser.username,
+             content: currentMessage,
+             timestamp: new Date().toISOString()
+         });
+         setCurrentMessage('');
+    };
+
+    return (
+        <div className="flex flex-col h-full relative">
+            {/* Header */}
+            <div className="px-6 py-4 flex items-center border-b border-slate-800 bg-brand-dark/50 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+                 <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-indigo-400 mr-4 shadow-inner ring-1 ring-white/5">
+                     {roomId.replace('room_', '').charAt(0).toUpperCase()}
+                 </div>
+                 <div>
+                     <h3 className="font-bold text-white text-lg tracking-tight">{roomId.replace('room_', '')}</h3>
+                     <p className="text-xs text-emerald-400 font-medium">Secured • Real-Time Chat</p>
+                 </div>
+            </div>
+
+            {/* Canvas */}
+            <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                {messages.length === 0 && (
+                     <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
+                         <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center">
+                             <svg className="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                         </div>
+                         <p>Silence is golden. Break it!</p>
+                     </div>
+                )}
+                {messages.map((msg, idx) => {
+                     const isOwn = msg.senderId === currentUser.id;
+                     return (
+                         <div key={idx} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                             <div className={`max-w-[70%] lg:max-w-[60%] flex flex-col gap-1 ${isOwn ? 'items-end' : 'items-start'}`}>
+                                  {!isOwn && <span className="text-xs font-semibold text-indigo-400 pl-1 drop-shadow-sm">{msg.senderName}</span>}
+                                  
+                                  <div className={`px-4 py-2.5 rounded-2xl relative shadow-md ${
+                                      isOwn 
+                                      ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-br-sm' 
+                                      : 'bg-slate-800 text-slate-100 rounded-bl-sm border border-slate-700'
+                                  }`}>
+                                      <p className="text-sm md:text-[15px] leading-relaxed break-words">{msg.content}</p>
+                                  </div>
+                                  
+                                  <div className={`flex items-center gap-1.5 px-1 mt-0.5 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                                      <span className="text-[10px] sm:text-xs text-slate-500 font-medium">
+                                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                      {isOwn && (
+                                          <span className={`text-[10px] font-bold ${msg.isRead ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                               {msg.isRead ? '✓✓' : '✓'}
+                                          </span>
+                                      )}
+                                  </div>
+                             </div>
+                         </div>
+                     )
+                })}
+                <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Form */}
+            <div className="p-4 md:p-6 bg-brand-dark/80 backdrop-blur-xl border-t border-slate-800 mt-auto shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)]">
+                 <form onSubmit={handleSend} className="max-w-4xl mx-auto flex gap-3 relative">
+                     <input 
+                         type="text" 
+                         value={currentMessage}
+                         onChange={e => setCurrentMessage(e.target.value)}
+                         placeholder="Type a message..."
+                         className="flex-1 bg-slate-900 border border-slate-700/80 rounded-full pl-6 pr-12 py-3.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all shadow-inner placeholder:text-slate-500"
+                     />
+                     <button 
+                         type="submit"
+                         disabled={!currentMessage.trim()}
+                         className="absolute right-2 top-1 bottom-1 aspect-square bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full flex items-center justify-center transition-all disabled:cursor-not-allowed shadow-md hover:shadow-[0_0_15px_-3px_rgba(99,102,241,0.5)]"
+                     >
+                        <svg className="w-5 h-5 -ml-0.5 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                     </button>
+                 </form>
+            </div>
+        </div>
+    );
+};
+
+export default ChatWindow;
