@@ -128,15 +128,15 @@ const Dashboard = () => {
             {/* Sidebar List */}
             <div className="w-[320px] shrink-0 border-r border-slate-800 flex flex-col bg-brand-dark">
                 {/* Header Navbar */}
-                <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-[#1e293b]">
                     <div>
-                        <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">NeoChat</h2>
+                        <h2 className="text-xl font-bold text-slate-100">NeoChat</h2>
                         <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
                              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                              {userInfo.username}
                         </div>
                     </div>
-                    <button onClick={() => setShowModal(true)} className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors">
+                    <button onClick={() => setShowModal(true)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-colors" title="Start Chat">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                     </button>
                 </div>
@@ -150,10 +150,10 @@ const Dashboard = () => {
                         return (
                             <div 
                                 key={conv.id} onClick={() => { setActiveRoom(conv.id); setConversations(prev => prev.map(c => c.id === conv.id ? {...c, unreadCount: 0} : c)) }}
-                                className={`flex items-center gap-3 p-3 cursor-pointer rounded-xl transition-all ${isActive ? 'bg-indigo-500/10 shadow-[inset_3px_0_0_0_#8b5cf6]' : 'hover:bg-slate-800/50'}`}
+                                className={`flex items-center gap-3 p-3 cursor-pointer rounded-xl transition-all ${isActive ? 'bg-[#1e293b] border-l-4 border-indigo-500' : 'hover:bg-slate-800/80 border-l-4 border-transparent'}`}
                             >
                                 <div className="relative shrink-0">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                                         {conv.isGroup ? '#' : conv.name.charAt(0).toUpperCase()}
                                     </div>
                                     {!conv.isGroup && (
@@ -162,7 +162,7 @@ const Dashboard = () => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-baseline justify-between mb-0.5">
-                                        <h3 className={`font-semibold truncate text-sm ${isActive ? 'text-indigo-300' : 'text-slate-200'}`}>{conv.name}</h3>
+                                        <h3 className={`font-semibold truncate text-sm ${isActive ? 'text-white' : 'text-slate-200'}`}>{conv.name}</h3>
                                         <span className="text-[10px] text-slate-500 shrink-0 ml-2">
                                            {new Date(conv.lastMessageTime).getHours() > 0 ? new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                         </span>
@@ -182,7 +182,7 @@ const Dashboard = () => {
                 </div>
 
                 <div className="p-4 border-t border-slate-800">
-                     <button onClick={() => { localStorage.removeItem('userInfo'); socket.disconnect(); navigate('/login'); }} className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-800 hover:bg-red-500/10 text-slate-400 hover:text-red-400 rounded-lg transition-all text-sm font-medium border border-transparent hover:border-red-500/20">
+                     <button onClick={() => { localStorage.removeItem('userInfo'); socket.disconnect(); navigate('/login'); }} className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-800 hover:bg-[#334155] text-slate-300 rounded-lg transition-colors text-sm font-medium">
                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                          Sign Out
                      </button>
@@ -190,14 +190,14 @@ const Dashboard = () => {
             </div>
 
             {/* Chat Canvas */}
-            <div className="flex-1 flex flex-col min-w-0 bg-slate-900/40 relative">
+            <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a] relative">
                 <ChatWindow socket={socket} currentUser={userInfo} roomId={activeRoom} />
             </div>
 
             {/* Modal Override */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark/80 backdrop-blur-sm px-4">
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl p-6">
+                    <div className="bg-[#1e293b] border border-slate-700 rounded-xl w-full max-w-md shadow-xl p-6">
                         <h3 className="text-xl font-bold mb-4 text-white">Start Conversation</h3>
                         <form onSubmit={handleCreateGroup}>
                             <div className="mb-5">

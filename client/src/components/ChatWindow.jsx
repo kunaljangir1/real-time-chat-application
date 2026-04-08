@@ -76,19 +76,19 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
     return (
         <div className="flex flex-col h-full relative">
             {/* Header */}
-            <div className="px-6 py-4 flex items-center justify-between border-b border-slate-800 bg-brand-dark/50 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-slate-800 bg-[#1e293b] sticky top-0 z-10">
                  <div className="flex items-center">
-                     <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-indigo-400 mr-4 shadow-inner ring-1 ring-white/5">
+                     <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center font-bold text-slate-300 mr-4">
                          {roomId.replace('room_', '').charAt(0).toUpperCase()}
                      </div>
                      <div>
-                         <h3 className="font-bold text-white text-lg tracking-tight">{roomId.replace('room_', '')}</h3>
-                         <p className="text-xs text-emerald-400 font-medium">Secured • Real-Time Chat</p>
+                         <h3 className="font-bold text-slate-100 text-lg tracking-tight">{roomId.replace('room_', '')}</h3>
+                         <p className="text-xs text-slate-400 font-medium">Secured • Real-Time Chat</p>
                      </div>
                  </div>
                  
                  {roomId !== 'Global Lounge' && (
-                     <button onClick={handleDeleteRoom} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" title="Delete Conversation">
+                     <button onClick={handleDeleteRoom} className="p-2 text-slate-500 hover:text-red-400 hover:bg-[#0f172a] rounded-lg transition-colors" title="Delete Conversation">
                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                      </button>
                  )}
@@ -111,10 +111,10 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
                              <div className={`max-w-[70%] lg:max-w-[60%] flex flex-col gap-1 ${isOwn ? 'items-end' : 'items-start'}`}>
                                   {!isOwn && <span className="text-xs font-semibold text-indigo-400 pl-1 drop-shadow-sm">{msg.senderName}</span>}
                                   
-                                  <div className={`px-4 py-2.5 rounded-2xl relative shadow-md ${
+                                  <div className={`px-4 py-2.5 rounded-2xl relative shadow-sm ${
                                       isOwn 
-                                      ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-br-sm' 
-                                      : 'bg-slate-800 text-slate-100 rounded-bl-sm border border-slate-700'
+                                      ? 'bg-[#4f46e5] text-white rounded-br-sm' 
+                                      : 'bg-[#1e293b] text-slate-100 rounded-bl-sm border border-slate-700'
                                   }`}>
                                       <p className="text-sm md:text-[15px] leading-relaxed break-words">{msg.content}</p>
                                   </div>
@@ -137,19 +137,19 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
             </div>
 
             {/* Input Form */}
-            <div className="p-4 md:p-6 bg-brand-dark/80 backdrop-blur-xl border-t border-slate-800 mt-auto shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)]">
+            <div className="p-4 md:p-6 bg-[#0f172a] border-t border-slate-800 mt-auto">
                  <form onSubmit={handleSend} className="max-w-4xl mx-auto flex gap-3 relative">
                      <input 
                          type="text" 
                          value={currentMessage}
                          onChange={e => setCurrentMessage(e.target.value)}
                          placeholder="Type a message..."
-                         className="flex-1 bg-slate-900 border border-slate-700/80 rounded-full pl-6 pr-12 py-3.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all shadow-inner placeholder:text-slate-500"
+                         className="flex-1 bg-[#1e293b] border border-slate-700 rounded-full pl-6 pr-12 py-3.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-500"
                      />
                      <button 
                          type="submit"
                          disabled={!currentMessage.trim()}
-                         className="absolute right-2 top-1 bottom-1 aspect-square bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full flex items-center justify-center transition-all disabled:cursor-not-allowed shadow-md hover:shadow-[0_0_15px_-3px_rgba(99,102,241,0.5)]"
+                         className="absolute right-2 top-1 bottom-1 aspect-square bg-[#4f46e5] hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-full flex items-center justify-center transition-colors disabled:cursor-not-allowed"
                      >
                         <svg className="w-5 h-5 -ml-0.5 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
                      </button>
