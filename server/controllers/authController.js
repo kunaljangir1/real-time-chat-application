@@ -18,7 +18,8 @@ const registerUser = async (req, res) => {
             username,
             email,
             password,
-            avatar: avatar || ''
+            avatar: avatar || '',
+            onlineStatus: true
         });
 
         if (user) {
@@ -27,6 +28,7 @@ const registerUser = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 avatar: user.avatar,
+                onlineStatus: user.onlineStatus,
                 token: generateToken(user._id)
             });
         } else {
