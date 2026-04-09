@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../config';
 
-const ChatWindow = ({ socket, currentUser, roomId }) => {
+const ChatWindow = ({ socket, currentUser, roomId, isGroupChat }) => {
     const [messages, setMessages] = useState([]);
     const [currentMessage, setCurrentMessage] = useState('');
     const [typingUsers, setTypingUsers] = useState([]);
+    
+    // Member management state
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [usersToInvite, setUsersToInvite] = useState([]);
+    const [existingMemberIds, setExistingMemberIds] = useState([]);
+    
     const typingTimeoutRef = useRef(null);
     const messagesEndRef = useRef(null);
 
@@ -95,6 +101,42 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
          setCurrentMessage('');
     };
 
+    const fetchAvailableUsers = async () => {
+        try {
+            // 1. Get all users
+            const usersRes = await fetch(`${API_URL}/api/users`);
+            const allUsers = await usersRes.json();
+            
+            // 2. Get current room members
+            const membersRes = await fetch(`${API_URL}/api/rooms/${roomId}/members`);
+            const members = await membersRes.json();
+            const memberIds = members.map(m => m.id);
+            setExistingMemberIds(memberIds);
+
+            // Filter users who are NOT in the room yet
+            const filtered = allUsers.filter(u => !memberIds.includes(u.id) && u.id !== currentUser.id);
+            setUsersToInvite(filtered);
+            setShowInviteModal(true);
+        } catch (err) { console.error("Error fetching users for invite", err); }
+    };
+
+    const handleAddMember = async (targetUserId) => {
+        try {
+            const res = await fetch(`${API_URL}/api/rooms/add-member`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roomName: roomId, userId: targetUserId })
+            });
+            
+            if (res.ok) {
+                // Remove from local invite list
+                setUsersToInvite(prev => prev.filter(u => u.id !== targetUserId));
+                setExistingMemberIds(prev => [...prev, targetUserId]);
+                alert("Teammate added to the group!");
+            }
+        } catch (err) { console.error("Error adding member", err); }
+    };
+
     const handleDeleteRoom = async () => {
         if (!window.confirm("Are you sure you want to permanently delete this conversation for the server? This cannot be undone.")) return;
         try {
@@ -121,11 +163,19 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
                      </div>
                  </div>
                  
-                 {roomId !== 'Global Lounge' && (
-                     <button onClick={handleDeleteRoom} className="p-2 text-slate-500 hover:text-red-400 hover:bg-[#0f172a] rounded-lg transition-colors" title="Delete Conversation">
-                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                     </button>
-                 )}
+                 <div className="flex items-center gap-1">
+                     {isGroupChat && roomId !== 'Global Lounge' && (
+                         <button onClick={fetchAvailableUsers} className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-[#0f172a] rounded-lg transition-colors" title="Add Members">
+                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                         </button>
+                     )}
+                     
+                     {roomId !== 'Global Lounge' && (
+                         <button onClick={handleDeleteRoom} className="p-2 text-slate-500 hover:text-red-400 hover:bg-[#0f172a] rounded-lg transition-colors" title="Delete Conversation">
+                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                         </button>
+                     )}
+                 </div>
             </div>
 
             {/* Canvas */}
@@ -204,6 +254,50 @@ const ChatWindow = ({ socket, currentUser, roomId }) => {
                      </button>
                  </form>
             </div>
+
+            {/* Invite Member Modal */}
+            {showInviteModal && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0f172a]/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#1e293b] border border-slate-700 rounded-xl w-full max-w-sm shadow-2xl p-6">
+                        <div className="flex justify-between items-center mb-5">
+                            <h4 className="text-lg font-bold text-white">Add Teammates</h4>
+                            <button onClick={() => setShowInviteModal(false)} className="text-slate-500 hover:text-white">
+                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            {usersToInvite.length === 0 ? (
+                                <p className="text-center py-8 text-slate-500 text-sm">Everyone is already in this loop!</p>
+                            ) : (
+                                usersToInvite.map(user => (
+                                    <div key={user.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative">
+                                                 <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold uppercase">
+                                                     {user.username.charAt(0)}
+                                                 </div>
+                                                 {user.onlineStatus && <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border-2 border-[#1e293b]"></span>}
+                                            </div>
+                                            <span className="text-sm font-medium text-slate-200">{user.username}</span>
+                                        </div>
+                                        <button 
+                                           onClick={() => handleAddMember(user.id)}
+                                           className="px-3 py-1.5 text-xs font-bold bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div className="mt-6 pt-4 border-t border-slate-700/50">
+                             <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest font-bold">Room: {roomId.replace('room_', '')}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

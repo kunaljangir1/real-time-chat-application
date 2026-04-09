@@ -215,7 +215,12 @@ const Dashboard = () => {
 
             {/* Chat Canvas */}
             <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a] relative">
-                <ChatWindow socket={socket} currentUser={userInfo} roomId={activeRoom} />
+                <ChatWindow 
+                    socket={socket} 
+                    currentUser={userInfo} 
+                    roomId={activeRoom} 
+                    isGroupChat={conversations.find(c => c.id === activeRoom)?.isGroup}
+                />
             </div>
 
             {/* Modal Override */}

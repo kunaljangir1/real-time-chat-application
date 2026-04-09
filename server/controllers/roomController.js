@@ -67,4 +67,38 @@ const deleteRoom = async (req, res) => {
     }
 };
 
-module.exports = { createRoom, getRooms, deleteRoom };
+// @route GET /api/rooms/:roomName/members
+const getRoomMembers = async (req, res) => {
+    try {
+        const { roomName } = req.params;
+        const room = await ChatRoom.findOne({ roomName }).populate('members', 'id username email onlineStatus');
+        if (!room) return res.status(404).json({ message: 'Room not found' });
+        
+        res.json(room.members);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// @route POST /api/rooms/add-member
+const addMember = async (req, res) => {
+    try {
+        const { roomName, userId } = req.body;
+        
+        const room = await ChatRoom.findOne({ roomName });
+        if (!room) return res.status(404).json({ message: 'Room not found' });
+        
+        if (room.members.includes(userId)) {
+            return res.status(400).json({ message: 'User is already a member of this room' });
+        }
+
+        room.members.push(userId);
+        await room.save();
+
+        res.json({ message: 'Member added successfully', room });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports = { createRoom, getRooms, deleteRoom, getRoomMembers, addMember };
