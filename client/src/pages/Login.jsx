@@ -37,7 +37,11 @@ const Login = () => {
       localStorage.setItem('userInfo', JSON.stringify(data));
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      if (err.message === 'Failed to fetch') {
+        setError('Server Connection Error: Please ensure the backend is running and your MongoDB IP is whitelisted.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
