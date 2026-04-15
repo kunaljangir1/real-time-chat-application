@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,9 +8,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        'brand-dark': '#0f172a',
-        'brand-panel': 'rgba(30, 41, 59, 0.7)',
-        'brand-accent': '#8b5cf6',
+        'brand-light': '#f8fafc',
+        'brand-white': '#ffffff',
+        'brand-pale-blue': '#e0f2fe',
+        'brand-blue': '#0ea5e9',
+        'brand-charcoal': '#334155',
+        'brand-text': '#1e293b',
+        'brand-muted': '#64748b',
+        'brand-glass': 'rgba(255, 255, 255, 0.7)',
+        'brand-glass-border': 'rgba(255, 255, 255, 0.5)',
       }
     },
   },

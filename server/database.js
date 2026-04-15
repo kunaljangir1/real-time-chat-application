@@ -77,11 +77,18 @@ const getMessagesByChannel = (channel, callback) => {
     });
 };
 
+const updateUsername = (userId, newUsername, callback) => {
+    db.run(`UPDATE users SET username = ? WHERE id = ?`, [newUsername, userId], function(err) {
+        callback(err);
+    });
+};
+
 module.exports = {
     db,
     getUserByUsername,
     setUserOffline,
     getAllUsers,
     saveMessage,
-    getMessagesByChannel
+    getMessagesByChannel,
+    updateUsername
 };
