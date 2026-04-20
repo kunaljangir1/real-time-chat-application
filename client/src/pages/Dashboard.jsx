@@ -104,13 +104,24 @@ const Dashboard = () => {
                 let updated = [...prev];
                 const idx = updated.findIndex(c => c.id === data.roomId);
                 if (idx > -1) {
+                    // Known room — update last message + unread count
                     const c = updated[idx];
                     updated[idx] = { ...c, lastMessage: data.content, unreadCount: c.id !== activeRoom ? c.unreadCount + 1 : c.unreadCount };
                     const item = updated.splice(idx, 1)[0];
                     updated.unshift(item);
+                } else {
+                    // Unknown room (first message in a new DM) — refetch sidebar
+                    fetchConversations(parsedUser.id);
                 }
                 return updated;
             });
+        });
+
+        // Fired by the server to the recipient when a new conversation starts
+        // (e.g. someone messages you for the first time, or a group message arrives
+        // before you've joined that socket room)
+        newSocket.on('new_conversation', () => {
+            fetchConversations(parsedUser.id);
         });
 
         fetchConversations(parsedUser.id);
@@ -554,6 +565,9 @@ const Dashboard = () => {
                     roomId={activeRoom}
                     roomName={conversations.find(c => c.id === activeRoom)?.name || activeRoom}
                     isGroupChat={conversations.find(c => c.id === activeRoom)?.isGroup}
+                    targetUserId={conversations.find(c => c.id === activeRoom)?.targetUserId}
+                    contacts={contacts}
+                    onAddContact={handleAddContact}
                 />
             </div>
 

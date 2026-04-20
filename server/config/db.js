@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const connectDB = async (retryCount = 0) => {
     try {
-        const uri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/realtime-chat';
+        const uri = process.env.MONGO_URI || 'mongodb://[IP_ADDRESS]/realtime-chat';
         await mongoose.connect(uri, {
             serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of hanging
         });
