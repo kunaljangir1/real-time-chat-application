@@ -18,20 +18,118 @@ const getAllUsers = async (req, res) => {
     }
 };
 
-const searchUserByEmail = async (req, res) => {
+// GET /api/users/search?q=<query>&currentUserId=<id>
+// Returns:
+//   { savedContacts: [...], unknownUser: {...} | null }
+// savedContacts = contacts whose email/username contain the query string
+// unknownUser   = exact email match that is NOT in the user's contacts (for "Add" suggestion)
+const searchUsers = async (req, res) => {
     try {
-        const { email } = req.query;
-        if (!email) return res.status(400).json({ message: 'Email is required' });
+        const { q, currentUserId } = req.query;
+        if (!q || !q.trim()) return res.status(400).json({ message: 'Query is required' });
 
-        const user = await User.findOne({ email: email.toLowerCase().trim() }).select('-password');
-        if (!user) return res.status(404).json({ message: 'No user found with that email' });
+        const query = q.trim().toLowerCase();
+
+        // Fetch the current user to get their contacts list
+        const currentUser = await User.findById(currentUserId).select('contacts email');
+        if (!currentUser) return res.status(404).json({ message: 'Current user not found' });
+
+        const contactEmails = currentUser.contacts || [];
+
+        // Find all users whose emails are in the contacts list AND match the query
+        const savedContactDocs = await User.find({
+            email: { $in: contactEmails },
+            $or: [
+                { email: { $regex: query, $options: 'i' } },
+                { username: { $regex: query, $options: 'i' } }
+            ]
+        }).select('-password');
+
+        const savedContacts = savedContactDocs.map(u => ({
+            id: u._id,
+            username: u.username,
+            email: u.email,
+            avatar: u.avatar,
+            onlineStatus: u.onlineStatus
+        }));
+
+        // Only do exact-email lookup for "unknown" user if query looks like a full email
+        let unknownUser = null;
+        if (query.includes('@')) {
+            const exactMatch = await User.findOne({ email: query }).select('-password');
+            if (exactMatch && exactMatch._id.toString() !== currentUserId) {
+                const isAlreadyContact = contactEmails.includes(exactMatch.email.toLowerCase());
+                if (!isAlreadyContact) {
+                    unknownUser = {
+                        id: exactMatch._id,
+                        username: exactMatch.username,
+                        email: exactMatch.email,
+                        avatar: exactMatch.avatar,
+                        onlineStatus: exactMatch.onlineStatus
+                    };
+                }
+            }
+        }
+
+        res.json({ savedContacts, unknownUser });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// GET /api/users/:id/contacts  — return full user objects for the contact emails
+const getUserContacts = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('contacts');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const contactDocs = await User.find({ email: { $in: user.contacts } }).select('-password');
+        const contacts = contactDocs.map(u => ({
+            id: u._id,
+            username: u.username,
+            email: u.email,
+            avatar: u.avatar,
+            onlineStatus: u.onlineStatus
+        }));
+
+        res.json(contacts);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// POST /api/users/:id/contacts  body: { contactEmail }
+const addContact = async (req, res) => {
+    try {
+        const { contactEmail } = req.body;
+        const userId = req.params.id;
+
+        if (!contactEmail) return res.status(400).json({ message: 'contactEmail is required' });
+
+        // Make sure the contact user actually exists
+        const contactUser = await User.findOne({ email: contactEmail.toLowerCase().trim() });
+        if (!contactUser) return res.status(404).json({ message: 'No user found with that email' });
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const email = contactUser.email.toLowerCase();
+        if (user.contacts.includes(email)) {
+            return res.status(400).json({ message: 'Already in contacts' });
+        }
+
+        user.contacts.push(email);
+        await user.save();
 
         res.json({
-            id: user._id,
-            username: user.username,
-            email: user.email,
-            avatar: user.avatar,
-            onlineStatus: user.onlineStatus
+            message: 'Contact added successfully',
+            contact: {
+                id: contactUser._id,
+                username: contactUser.username,
+                email: contactUser.email,
+                avatar: contactUser.avatar,
+                onlineStatus: contactUser.onlineStatus
+            }
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -74,4 +172,4 @@ const updateProfile = async (req, res) => {
     }
 };
 
-module.exports = { getAllUsers, updateProfile, searchUserByEmail };
+module.exports = { getAllUsers, searchUsers, getUserContacts, addContact, updateProfile };

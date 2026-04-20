@@ -37,12 +37,13 @@ const Dashboard = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
 
-    // Contacts tab state
-    const [contacts, setContacts] = useState(() => {
-        try { return JSON.parse(localStorage.getItem('contacts') || '[]'); } catch { return []; }
-    });
+    // Contacts tab state — stored in DB, NOT localStorage
+    const [contacts, setContacts] = useState([]);
     const [contactEmailInput, setContactEmailInput] = useState('');
-    const [contactSearchResult, setContactSearchResult] = useState(null);
+    // savedContactResults: contacts from user's list that match the search
+    const [savedContactResults, setSavedContactResults] = useState([]);
+    // unknownUserResult: an exact-email match that is NOT in the user's contacts yet
+    const [unknownUserResult, setUnknownUserResult] = useState(null);
     const [contactSearchError, setContactSearchError] = useState('');
     const [isSearchingContact, setIsSearchingContact] = useState(false);
 
@@ -114,6 +115,7 @@ const Dashboard = () => {
 
         fetchConversations(parsedUser.id);
         fetchUsersForModal();
+        fetchUserContacts(parsedUser.id);
 
         return () => newSocket.disconnect();
     }, [navigate, activeRoom]);
@@ -134,37 +136,66 @@ const Dashboard = () => {
         } catch (err) { console.error(err); }
     };
 
+    const fetchUserContacts = async (userId) => {
+        try {
+            const res = await fetch(`${API_URL}/api/users/${userId}/contacts`);
+            const data = await res.json();
+            if (Array.isArray(data)) setContacts(data);
+        } catch (err) { console.error('Error fetching contacts:', err); }
+    };
+
     useEffect(() => {
-        if (activeTab === 'contacts' && searchTerm.includes('@')) {
+        if (activeTab === 'contacts' && searchTerm.trim().length > 0 && userInfo) {
             const delayDebounceFn = setTimeout(async () => {
                 setIsSearchingContact(true);
-                setContactSearchResult(null);
+                setSavedContactResults([]);
+                setUnknownUserResult(null);
                 setContactSearchError('');
                 try {
-                    const res = await fetch(`${API_URL}/api/users/search?email=${encodeURIComponent(searchTerm.trim())}`);
+                    const res = await fetch(
+                        `${API_URL}/api/users/search?q=${encodeURIComponent(searchTerm.trim())}&currentUserId=${userInfo.id}`
+                    );
                     const data = await res.json();
-                    if (res.ok) setContactSearchResult(data);
-                    else setContactSearchError(data.message || 'User not found');
+                    if (res.ok) {
+                        setSavedContactResults(data.savedContacts || []);
+                        setUnknownUserResult(data.unknownUser || null);
+                    } else {
+                        setContactSearchError(data.message || 'Search failed');
+                    }
                 } catch {
                     setContactSearchError('Network error. Check your connection.');
                 } finally {
                     setIsSearchingContact(false);
                 }
-            }, 600);
+            }, 500);
             return () => clearTimeout(delayDebounceFn);
         } else {
-            setContactSearchResult(null);
+            setSavedContactResults([]);
+            setUnknownUserResult(null);
             setContactSearchError('');
         }
-    }, [searchTerm, activeTab]);
+    }, [searchTerm, activeTab, userInfo]);
 
-    const handleAddContact = (user) => {
-        if (contacts.find(c => c.id === user.id)) return;
-        const updated = [...contacts, user];
-        setContacts(updated);
-        localStorage.setItem('contacts', JSON.stringify(updated));
-        setContactSearchResult(null);
-        setSearchTerm('');
+    const handleAddContact = async (user) => {
+        if (!userInfo) return;
+        try {
+            const res = await fetch(`${API_URL}/api/users/${userInfo.id}/contacts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contactEmail: user.email })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                // Add to local contacts list
+                setContacts(prev => [...prev, data.contact]);
+                setUnknownUserResult(null);
+                setSearchTerm('');
+            } else {
+                alert(data.message || 'Failed to add contact');
+            }
+        } catch {
+            alert('Network error. Could not add contact.');
+        }
     };
 
     const handleOpenDirectChat = (contactUser) => {
@@ -408,64 +439,105 @@ const Dashboard = () => {
                         {/* ── CONTACTS Tab ── */}
                         <div className="w-1/3 h-full overflow-y-auto">
                             <div className="p-4 space-y-4">
-                                {/* Global search auto-fetches emails. Errors appear here. */}
-                                {contactSearchError && searchTerm.includes('@') && (
-                                    <p className="text-[13px] text-slate-500 dark:text-slate-400 text-center">{contactSearchError}</p>
+
+                                {/* Search status / error */}
+                                {isSearchingContact && (
+                                    <p className="text-[13px] text-slate-400 dark:text-slate-500 text-center">Searching...</p>
+                                )}
+                                {contactSearchError && (
+                                    <p className="text-[13px] text-red-400 text-center">{contactSearchError}</p>
                                 )}
 
-                                {/* Search result preview */}
-                                {contactSearchResult && (
-                                    <div className="flex items-center justify-between p-3 rounded-lg border border-[#0078fe]/20 bg-blue-50 dark:bg-blue-500/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-white font-bold text-sm">{contactSearchResult.username.charAt(0).toUpperCase()}</div>
-                                            <div>
-                                                <p className="text-[14px] font-semibold text-slate-800 dark:text-slate-200">{contactSearchResult.username}</p>
-                                                <p className="text-[12px] text-slate-400 dark:text-slate-500">{contactSearchResult.email}</p>
-                                            </div>
+                                {/* ── Saved contacts matching the search ── */}
+                                {searchTerm.trim().length > 0 && savedContactResults.length > 0 && (
+                                    <div>
+                                        <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Contacts</p>
+                                        <div className="space-y-1">
+                                            {savedContactResults.map(contact => (
+                                                <div key={contact.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-[#7064ff] flex items-center justify-center text-white font-bold text-sm shrink-0">{contact.username.charAt(0).toUpperCase()}</div>
+                                                        <div>
+                                                            <p className="text-[14px] font-semibold text-slate-800 dark:text-slate-200">{contact.username}</p>
+                                                            <p className="text-[12px] text-slate-400 dark:text-slate-500">{contact.email}</p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleOpenDirectChat(contact)}
+                                                        className="p-2 rounded-full text-slate-400 hover:text-[#0078fe] hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors opacity-0 group-hover:opacity-100"
+                                                        title="Message"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
-                                        <button
-                                            onClick={() => handleAddContact(contactSearchResult)}
-                                            disabled={!!contacts.find(c => c.id === contactSearchResult.id)}
-                                            className="px-3 py-1.5 bg-[#0078fe] text-white text-[12px] font-semibold rounded-lg hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:text-slate-500 transition-colors"
-                                        >
-                                            {contacts.find(c => c.id === contactSearchResult.id) ? 'Added' : 'Add'}
-                                        </button>
                                     </div>
                                 )}
 
-                                {/* Contact list */}
-                                {contacts.length > 0 && (
+                                {/* ── Unknown user (exact email, not in contacts) – show Add button ── */}
+                                {unknownUserResult && (
+                                    <div>
+                                        <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">New Contact</p>
+                                        <div className="flex items-center justify-between p-3 rounded-lg border border-[#0078fe]/30 bg-blue-50/60 dark:bg-blue-500/10">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-white font-bold text-sm">{unknownUserResult.username.charAt(0).toUpperCase()}</div>
+                                                <div>
+                                                    <p className="text-[14px] font-semibold text-slate-800 dark:text-slate-200">{unknownUserResult.username}</p>
+                                                    <p className="text-[12px] text-slate-400 dark:text-slate-500">{unknownUserResult.email}</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => handleAddContact(unknownUserResult)}
+                                                className="px-3 py-1.5 bg-[#0078fe] text-white text-[12px] font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                                            >
+                                                + Add
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── Full contacts list (when no search active) ── */}
+                                {searchTerm.trim().length === 0 && contacts.length > 0 && (
                                     <div>
                                         <p className="text-[12px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">My Contacts ({contacts.length})</p>
                                         <div className="space-y-1">
-                                            {contacts
-                                                .filter(c => c.username.toLowerCase().includes(searchTerm.toLowerCase()) || c.email?.toLowerCase().includes(searchTerm.toLowerCase()))
-                                                .map(contact => (
-                                                    <div key={contact.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-white font-bold text-sm shrink-0">{contact.username.charAt(0).toUpperCase()}</div>
-                                                            <div>
-                                                                <p className="text-[14px] font-semibold text-slate-800 dark:text-slate-200">{contact.username}</p>
-                                                                <p className="text-[12px] text-slate-400 dark:text-slate-500">{contact.email}</p>
-                                                            </div>
+                                            {contacts.map(contact => (
+                                                <div key={contact.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-white font-bold text-sm shrink-0">{contact.username.charAt(0).toUpperCase()}</div>
+                                                        <div>
+                                                            <p className="text-[14px] font-semibold text-slate-800 dark:text-slate-200">{contact.username}</p>
+                                                            <p className="text-[12px] text-slate-400 dark:text-slate-500">{contact.email}</p>
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleOpenDirectChat(contact)}
-                                                            className="p-2 rounded-full text-slate-400 hover:text-[#0078fe] hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors opacity-0 group-hover:opacity-100"
-                                                            title="Message"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                                                        </button>
                                                     </div>
-                                                ))}
+                                                    <button
+                                                        onClick={() => handleOpenDirectChat(contact)}
+                                                        className="p-2 rounded-full text-slate-400 hover:text-[#0078fe] hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors opacity-0 group-hover:opacity-100"
+                                                        title="Message"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}
-                                {contacts.length === 0 && !contactSearchResult && (
+
+                                {/* Empty state */}
+                                {contacts.length === 0 && searchTerm.trim().length === 0 && (
                                     <div className="flex flex-col items-center justify-center h-36 text-slate-400 dark:text-slate-500 gap-2">
                                         <svg className="w-10 h-10 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                         <p className="text-[13px]">No contacts yet</p>
-                                        <p className="text-[12px] text-center text-slate-300 dark:text-slate-600">Search by email above to add people</p>
+                                        <p className="text-[12px] text-center text-slate-300 dark:text-slate-600">Search by name or email to find people</p>
+                                    </div>
+                                )}
+
+                                {/* No results state */}
+                                {searchTerm.trim().length > 0 && !isSearchingContact && savedContactResults.length === 0 && !unknownUserResult && !contactSearchError && (
+                                    <div className="flex flex-col items-center justify-center h-28 text-slate-400 dark:text-slate-500 gap-2">
+                                        <p className="text-[13px]">No contacts found for "{searchTerm}"</p>
+                                        <p className="text-[12px] text-center text-slate-300 dark:text-slate-600">Try their exact email to add as a new contact</p>
                                     </div>
                                 )}
                             </div>

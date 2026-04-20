@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema({
     onlineStatus: {
         type: Boolean,
         default: false
+    },
+    contacts: {
+        type: [String], // array of contact emails
+        default: []
     }
 }, {
     timestamps: true // Automatically creates 'createdAt' and 'updatedAt'
