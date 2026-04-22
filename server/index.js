@@ -15,7 +15,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://172.20.10.7:3000',
-  'http://172.20.10.7:5173'
+  'http://172.20.10.7:5173',
+  'http://172.20.10.5:3000',
 ];
 
 app.use(cors({
@@ -169,6 +170,6 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5001;
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT} and accessible on the local network`);
 });
